@@ -1,0 +1,373 @@
+[project]
+name = "lito"
+version = "0.0.1"
+requires-python = ">=3.11"
+description = "surface light field tokenization"
+
+# --- 1. BASE DEPENDENCIES (Universal) ---
+# Everyone gets these (Pip, UV, Pixi)
+dependencies = [
+    "pip",
+    "numpy>=2.0",
+    "scipy",
+    "einops",
+    "tqdm",
+    "pyyaml",
+    "easydict",
+    "omegaconf",
+    "loguru",
+    "colorama",
+    "scikit-image",
+    "opencv-python-headless",
+    "requests",
+    "lightning",
+    "lpips @ git+https://github.com/richzhang/PerceptualSimilarity.git",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "webdataset",
+    "timm",
+    "scikit-learn",
+    "nvdiffrast @ git+https://github.com/NVlabs/nvdiffrast.git ; sys_platform == 'linux'",
+    "open3d ; sys_platform == 'darwin'",  #  on linux we install headless version in post-install script
+    "awscli ; sys_platform == 'darwin'",  #  on linux we rely on the awscli in the system
+    "mlx ; sys_platform == 'darwin'",
+    "kaolin ; sys_platform == 'darwin'",
+]
+
+# --- 2. OPTIONAL DEPENDENCIES (Universal Extras) ---
+# This is the standard way to define groups.
+# Pip users run: pip install ".[vis]"
+# UV users run: uv sync --extra vis
+# Pixi users run: pixi install -e full
+# Pixi automatically creates "vis", "dev", "apple" features from this!
+[project.optional-dependencies]
+vis = [
+    "matplotlib",
+    "plotly",
+    "moviepy",
+    "imageio",
+    "kiui",
+    "textual-plotext",
+    "tensorboard",
+    "tensorboardX",
+    "torch-tb-profiler",
+    "wandb",
+    "av",
+    "pyexr",
+    "qoi",
+    "kornia",
+    "seaborn",
+]
+
+# Geometry / 3D Libraries
+geom = [
+    "trimesh",
+    "pygltflib",
+    "xatlas",
+    "pyminiply",
+    "plyfile",
+    "openexr>=3.3.2",
+]
+
+# Model & Eval Libraries
+eval = [
+    "transformers",
+    "clean-fid",
+    "objaverse",
+    "rembg",
+    "numba>=0.60.0",  # important
+    "llvmlite>=0.43.0",  # important
+]
+
+dev = [
+    "pytest>=8.3",
+    "ruff==0.11.4",
+    "pre-commit==4.1.0",
+    "ipdb",
+    "chardet",
+    "setuptools",
+    "wheel",
+    "ninja",
+    "jupyterlab",
+    "flask>=2.0",
+    "flask-cors>=3.0",
+    "nvidia-ml-py3",
+]
+
+trellis = [
+    "easydict",
+    "huggingface_hub",
+    "gradio",
+    "rembg",
+    "numba>=0.60.0",  # important
+    "llvmlite>=0.43.0",  # important
+    "onnxruntime",
+    "pyvista",
+    "pymeshfix",
+    "igraph",
+    "spconv-cu126; sys_platform == 'linux'",
+    "onnxruntime",
+    "utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
+]
+
+apple = [
+    "apple-bolt",
+    "iris-ml-ctl",
+    "parabolt",
+    "apple-fsspec",
+]
+
+# The "Meta" Group (Optional, but nice for pip users)
+all = [
+    "lito[geom,eval,vis,dev,trellis,apple]"
+]
+
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+exclude = [
+    "environment", "env",
+    "data",
+    "tests", "tests.*",
+    "notebooks", "notebooks.*",
+
+    # prevent accidental “old” variants from being packaged
+    "blender_rendering_old", "blender_rendering_old.*",
+    "blender_rendering_ori2", "blender_rendering_ori2.*",
+]
+
+
+# --- 3. PIXI CONFIG (The "Glue") ---
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.system-requirements]
+libc = "2.35"  # no installation, only telling pixi about target glibc version, needed for mlx[cuda] on linux
+
+# --- PIXI SPECIFIC DEPENDENCIES ---
+[tool.pixi.dependencies]
+python = "3.11.*"  # This forces Pixi to use Python 3.11 for all environments. Standard 'pip install' ignores this and respects 'requires-python = ">=3.11"'
+pixi-pycharm = ">=0.0.10"
+watch = "*"
+sparsehash = ">=2.0.4,<3"  # for compiling torchsparce
+
+[tool.pixi.pypi-dependencies]
+# We still need this to install the project itself in editable mode
+lito = { path = ".", editable = true }
+plibs = { path = "libraries/plibs", editable = true }
+blender_rendering = { path = "libraries/blender_rendering", editable = true }
+
+# PIXI SYSTEM DEPENDENCIES ---
+# These are only for Pixi users (Pip/UV users must install ffmpeg manually)
+[tool.pixi.target.linux-64.dependencies]
+ffmpeg = ">=6.0"
+libgl = "*"
+#xvfb-run = "*"
+unzip = "*"
+zip = "*"
+htop = "*"
+cxx-compiler = "==1.7.0"
+nccl = ">=2.20"
+zlib = "*"
+make = "*"
+cmake = "*"
+pkg-config = "*"
+
+[tool.pixi.target.linux-64.pypi-dependencies]
+mlx = { version = "*", extras = ["cuda"] }
+nvdiffrast = { git = "https://github.com/NVlabs/nvdiffrast.git" }
+spconv-cu126 = "*"
+
+[tool.pixi.target.osx-arm64.dependencies]
+ffmpeg = ">=6.0"
+pkg-config = "*"
+
+# ==========================================
+# Variants of environments
+# ==========================================
+
+[tool.pixi.activation.env]
+TORCH_CUDA_ARCH_LIST = "8.0;9.0;10.0"  # a100, h100, b200
+PYTORCH_ALLOC_CONF = "expandable_segments:True"  # future proofing for torch >= 2.10
+PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
+
+CUDA_HOME = "$CONDA_PREFIX"
+CPATH = "$CONDA_PREFIX/targets/x86_64-linux/include:$CPATH"
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$CONDA_PREFIX/lib64:$CONDA_PREFIX/targets/x86_64-linux/lib:$LD_LIBRARY_PATH"
+
+# pytorch 2.9.1
+[tool.pixi.feature.pt291.target.linux-64.dependencies]
+cuda-toolkit = "12.8.*"  # The Compiler
+cxx-compiler = "1.7.*"
+
+[tool.pixi.feature.pt291.pypi-dependencies]
+torch = "==2.9.1"
+torchvision = "==0.24.1"
+torchaudio = "==2.9.1"
+
+[tool.pixi.feature.pt291.activation.env]
+ENV_TAG = "pt291"
+
+
+
+# --- 5. ENVIRONMENTS ---
+# Pixi automatically found the features "vis", "dev", "apple" from [project.optional-dependencies]
+[tool.pixi.environments]
+default = ["pt291", "geom", "eval", "vis", "dev", "trellis", "apple"]
+
+
+
+# --- 6. TASKS ---
+[tool.pixi.target.linux-64.tasks]
+install_efa = "bash /usr/local/bin/install-aws-efa"
+setup_conductor = "bash env/scripts/setup_conductor.sh"
+setup_cyobj = "bash env/scripts/setup_cyobj.sh"
+setup_spz = "bash env/scripts/setup_spz.sh"
+setup_gaussian = "bash env/scripts/setup_gaussians.sh"
+setup_trellis = "bash env/scripts/setup_trellis.sh"
+setup_env_addon = "bash env/scripts/setup_env_addon.sh"
+compile_cuda_packages = "bash env/scripts/compile_cuda_packages.sh"
+
+post-install = { depends-on = [
+    "setup_conductor",
+    "setup_spz",
+    "setup_trellis",
+    "compile_cuda_packages"
+], cmd = """
+    echo "post-install finished!"
+    """ }
+
+# for testing nccl (not needed usually)
+build_nccl_tests = { depends-on = [
+    "install_efa"
+], cmd = """
+    git clone https://github.com/NVIDIA/nccl-tests.git .pixi/nccl-tests || true && \
+    cd .pixi/nccl-tests && \
+    make MPI=0 NCCL_HOME=$CONDA_PREFIX CUDA_HOME=$CONDA_PREFIX
+    """ }
+test_nccl = ".pixi/nccl-tests/build/all_reduce_perf"
+train = "python train.py"
+
+
+[tool.pixi.target.osx-arm64.tasks]
+setup_pytorch3d = """
+  MACOSX_DEPLOYMENT_TARGET=11.0 CC=clang CXX=clang++ pip install --no-build-isolation "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+  """
+setup_spz = "bash env/scripts/setup_spz.sh"
+post-install = { depends-on = [
+    "setup_spz",
+    "setup_pytorch3d"
+], cmd = "echo 'post-install finished!'" }
+
+
+
+# --- 7. UV / PIXI INDEX CONFIG ---
+[tool.pixi.pypi-options]
+extra-index-urls = ["https://pypi.apple.com/simple"]
+no-build-isolation = [
+    "nvdiffrast",
+    "diff_gauss",
+    "xformers",
+    "flash-attn",
+    "lightning-py-common",
+    "flash_attn",
+    "pytorch3d",
+    "open3d",
+    "gsplat",
+    "fused_ssim",
+    "torchsparse",
+]
+
+
+# UV reads this
+# Standard PIP does NOT read this (User must manually config pip for apple-bolt)
+#[[tool.uv.index]]
+#name = "apple-pypi"
+#url = "https://pypi.apple.com/simple"
+#explicit = false
+
+
+
+# ==========================================
+# TOOL CONFIGURATION (RUFF / ISORT)
+# ==========================================
+
+
+[project.urls]
+"Homepage" = "https://github.com/apple/ml-lito"
+"Bug Tracker" = "https://github.com/apple/ml-lito/issues"
+
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"  # Target Python version
+lint.select = [
+    "E",  # pycodestyle errors.
+    "F",  # Pyflakes rules.
+    "I",  # isort formatting.
+    "PLC",  # Pylint convention warnings.
+    "PLE",  # Pylint errors.
+    "PLR",  # Pylint refactor recommendations.
+    "PLW",  # Pylint warnings.
+    "NPY201" # NumPY 2.0 migration https://numpy.org/devdocs/numpy_2_0_migration_guide.html#ruff-plugin
+]
+lint.ignore = [
+    "E501",  # Line too long.
+    "F722",  # Forward annotation false positive from jaxtyping. Should be caught by pyright.
+    "F821",  # Forward annotation false positive from jaxtyping. Should be caught by pyright.
+    "PLR2004",  # Magic value used in comparison.
+    "PLR0915",  # Too many statements.
+    "PLR0913",  # Too many arguments.
+    "PLC0414",  # Import alias does not rename variable. (this is used for exporting names)
+    "PLC1901",  # Use falsey strings.
+    "PLR5501",  # Use `elif` instead of `else if`.
+    "PLR0911",  # Too many return statements.
+    "PLR0912",  # Too many branches.
+    "PLW0603",  # Globa statement updates are discouraged.
+    "PLW2901",  # For loop variable overwritten.
+    "PLR1730",  # Replace if statement with min/max
+    "PLC0206",  # No need to always use items for dict
+]
+exclude = ["third_party/"]
+
+
+[tool.ruff.format]
+quote-style = "double"
+line-ending = "lf"  # Use LF for all platforms
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+from-first = false
+force-sort-within-sections = true
+split-on-trailing-comma = false
+
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "torch",
+    "apple",
+    "first-party",
+    "local-folder",
+]
+
+known-first-party = [
+    "lito",
+    "plibs",
+    "blender_rendering",
+]
+
+[tool.ruff.lint.isort.sections]
+"torch" = ["torch", "torchvision", "pytorch3d"]
+"apple" = ["turibolt", "parabolt", "apple_fsspec", "dask_bolt"]

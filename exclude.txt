@@ -1,0 +1,14 @@
+.git
+.idea
+.ruff_cache
+.DS_Store
+.pixi
+__pycache__
+data
+artifacts
+
+third_party/TRELLIS/assets
+
+third_party/*/.git
+libraries/*/.git
+

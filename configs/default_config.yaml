@@ -1,0 +1,62 @@
+
+name: debug
+num_nodes: 1  # total number of nodes
+strategy: 'ddp'
+find_unused_parameters: False
+ddp_timeout_min: 30  # minute
+precision: 'bf16-mixed'
+artifact_dir: null  # null: set automatically (artifact_dir if using bolt)
+checkpoint_dir: null  # null: set automatically (parent's artifact_dir if using bolt)
+wandb_project: null  # wandb project name
+wandb_entity: null  # wandb entity (username / team name)
+add_bolt_id_to_wandb_name: False
+seed: 0  # global random seed
+fast_dev_run: 0  # number of batches to run for train/valid/test to debug
+limit_val_batches: 1.0  # int: number of batches to perform validation, float: ratio
+accumulate_grad_batches: 1  # important (controls actual batch size)
+debug: False
+resume_checkpoint_url: null  # conductor checkpoint to resume from
+finetune_checkpoint_url: null  # conductor checkpoint to load the model parameter from
+profiler: null  # "simple", "advanced", "pytorch"
+overfit_batches: 0.0
+num_apple_fsspec_threads: 2
+
+# - key: the specific module name in the PyTorchLighting module, e.g., voxel_decoder;
+# - value: the corresponding checkpoint S3 path that contains pre-trained model for that specific module.
+# Example:
+# module_checkpoint_url_dict:
+#    voxel_decoder: s3://XXX/model.ckpt
+module_checkpoint_url_dict: # null
+
+data_config:
+  target: ???  # name of the data module specific to the dataset
+  params:
+    method: ???  # 'multinode_local_sharding'  # 'multinode_local_sharding', 'global_sharding'
+    train_dataset_config: ???
+    train_dataloader_config:
+      batch_size: 32  # local batch size on each gpu
+      shuffle: True
+      num_workers: 4
+      pin_memory: True
+      drop_last: False
+    valid_dataset_config: ${data_config.train_dataset_config}
+    valid_dataloader_config: ${data_config.train_dataloader_config}
+    test_dataset_config: null
+    test_dataloader_config: null
+    predict_dataset_config: null
+    predict_dataloader_config: null
+
+
+# config to the lightning module
+plm_config:
+  target:
+  params:
+
+    optim_config:
+      lr_256: 1e-4  # learning rate when we have global_batch_size = 256
+      gradient_clip_val: 10.  # gradient clipping value
+      max_epochs: -1  # -1: inf epoch
+      max_steps: -1  # -1: inf iterations
+      num_sanity_val_steps: 1  # number of validation steps to run before training starts, useful to make sure validation runs ok
+      val_check_interval: 10000  # validation is performed every `val_check_interval` iterations
+      monitor_loss_name: 'loss/total_loss'  # name of the log of monitor

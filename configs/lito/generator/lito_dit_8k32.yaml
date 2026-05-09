@@ -1,0 +1,185 @@
+name: lito_dit_8k32
+wandb_name: ${name}
+wandb_project: fpoint_tokenization  # set to null to debug
+wandb_entity: cds_xd  # jenhao_chang  # set to null to debug
+add_bolt_id_to_wandb_name: true
+num_nodes: 1  # total number of nodes
+strategy: 'ddp'  # 'ddp'  # use "auto" for debug
+ddp_timeout_min: 60  # set to two days as dataset is large (downloading, unzip takes long time)
+precision: 'bf16-mixed'
+seed: 0  # global random seed
+fast_dev_run: 0  # number of batches to run for train/valid/test to debug, 0: normal run
+limit_val_batches: 10  # int: number of batches to perform validation
+overfit_batches: 0  # 10  # nonzero: debug
+debug: False  # True  # False  # True  # False
+profiler: null  #  "pytorch"  # 'advanced'  # "simple", "advanced", "pytorch"  null   # debug
+accumulate_grad_batches: 1  # 2  # 2  # 4  # debug, important (controls actual batch size)
+save_top_k: -1 # -1: save all checkpoints
+num_apple_fsspec_threads: 3
+
+data_config:
+  target: lito.datasets.obj_wdset.ObjIterableDataModule  # name of the data module specific to the dataset
+  params:
+    method: 'wdset'
+    split_dict_urls:  # train/valid/test -> list of urls
+
+      # Use our sphere as conditioning view
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_200239_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightDiffuse/STAGE_3/20250828_211333/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250823_175916_config_OURSwithTRELLISRenderCodeV11/STAGE_3/20250828_035123/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_195943_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightRandom/STAGE_3/20250829_095520/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverseXLGitHub/renderings/20250831_072354_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightRandom/STAGE_3/20250906_090407_1/split.json"
+
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_200239_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightDiffuse/IMG_COND_LDM/20250914_122019/IMG_COND_LDM_STAGE_1/for_webdataset/20250915_141853/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250823_175916_config_OURSwithTRELLISRenderCodeV11/IMG_COND_LDM/20250914_120910/IMG_COND_LDM_STAGE_1/for_webdataset/20250915_142001/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_195943_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightRandom/IMG_COND_LDM/20250914_114417/IMG_COND_LDM_STAGE_1/for_webdataset/20250915_141951/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverseXLGitHub/renderings/20250831_072354_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightRandom/IMG_COND_LDM/20250914_200846/IMG_COND_LDM_STAGE_1/for_webdataset/20250915_144404/split.json"
+
+    train_dataset_config:
+      batch_size: 1
+      mode: 'lito_img_cond_ldm_with_rgbd_cond_or_sphere'
+      num_sphere_views: 1  # not used for v1 data
+      num_cond_views: 1
+      max_num_voxels: 50000
+      nsamples: -1
+      wds_buffer_size: 64   # say 1 sample take 150MB, 64 samples take 10GB, per gpu, per worker
+      img_cond_ldm_cam_transformation: z_up
+      img_cond_ldm_scene_renormalize_scale_threshold: 0.7
+      debug_byte_dict_repeat: 1  # reuse the same byte_dict n times, before decoding (each has different cond views)
+      wds_sample_life: 6
+    train_dataloader_config:
+      batch_size: ${data_config.params.train_dataset_config.batch_size}  # remember to change accumulate_grad_batches
+      shuffle: False
+      collate_fn: lito.datasets.base.list_collate
+      num_workers: 4
+      pin_memory: True
+      drop_last: False
+      prefetch_factor: 4
+      persistent_workers: True
+      wds_shuffle_buffer_size: 32
+      prebatched: True
+      in_order: False
+    valid_dataset_config:
+      batch_size: ${data_config.params.train_dataset_config.batch_size}
+      mode: ${data_config.params.train_dataset_config.mode}
+      num_sphere_views: ${data_config.params.train_dataset_config.num_sphere_views}
+      num_cond_views: ${data_config.params.train_dataset_config.num_cond_views}
+      max_num_voxels: ${data_config.params.train_dataset_config.max_num_voxels}
+      nsamples: ${data_config.params.train_dataset_config.nsamples}
+      wds_buffer_size: 0
+      img_cond_ldm_cam_transformation: ${data_config.params.train_dataset_config.img_cond_ldm_cam_transformation}
+      img_cond_ldm_scene_renormalize_scale_threshold: ${data_config.params.train_dataset_config.img_cond_ldm_scene_renormalize_scale_threshold}
+    valid_dataloader_config:
+      batch_size: ${data_config.params.valid_dataset_config.batch_size}  # remember to change accumulate_grad_batches
+      shuffle: ${data_config.params.train_dataloader_config.shuffle}
+      collate_fn: ${data_config.params.train_dataloader_config.collate_fn}
+      num_workers: 1
+      pin_memory: ${data_config.params.train_dataloader_config.pin_memory}
+      drop_last: ${data_config.params.train_dataloader_config.drop_last}
+      prefetch_factor: 1
+      persistent_workers: ${data_config.params.train_dataloader_config.persistent_workers}
+      wds_shuffle_buffer_size: 0
+      prebatched: ${data_config.params.train_dataloader_config.prebatched}
+      in_order: False
+
+
+patch_encoder_name: "dinov2_vitl14_reg_rgb"
+dim_cond_token: 2048  # 1024 dino + 1024 linear
+
+
+# config to the lightning module
+plm_config:
+  target: lito.trainers.lito_dit_trainer.LiToDiTTrainer
+  params:
+    # for pretrained model
+    pretrained_model_checkpoint_url: "s3://cdsvision/models/lito/iclr_new_repo/lito.ckpt"
+    num_latent: 8192
+    latent_mean: 0.0661
+    latent_std: 1.6464
+
+    sample_posterior: True
+    std_posterior: null   # use tokenizer's training setting
+
+    # img condition
+    patch_encoder_name: ${patch_encoder_name}
+    num_cond_views: 1
+
+    # velocity decoder
+    velocity_estimator_config:
+      target: lito.models.dit.DiffusionTransformer
+      params:
+        # latent dimension determined by the pretrained model
+        num_latent: null
+        dim_latent: null
+        dim_cond_token: ${dim_cond_token}
+        patch_size: 1  # NOTE: this is important to ensure that we do not modify the latent tokens
+        cond_drop_prob: 0.1
+
+        # block
+        num_blocks: 28
+        dim_hidden: 1152
+        num_self_heads: 16
+        drop_path: 0.1
+        use_rmsnorm: True
+        use_swiglu: True
+        mlp_ratio: 4
+
+        # positional encoding
+        learn_positional_encoding: True
+
+        time_embedder_config:
+          target: lito.models.layers.FourierEmbed
+          params:
+            dim_pos: 1
+            include_input: False
+            min_freq_log2: 0
+            max_freq_log2: 12
+            num_freqs: 32
+            log_sampling: True
+
+
+
+    # misc
+    ema_decay: 0.999
+    eval_ema: True
+    cfg_scale: 1.0
+    t_eps: 1e-4
+    debug: False
+
+    #
+    optim_config:
+      num_tokenizer_points: null  # use max_num_encoder_points
+      st_init_coord_src: "sample_xyz"
+      st_num_sample_points_for_occ: 100_000
+
+      stg_sampling_method: "heun"
+      stg_sampling_steps: 100
+      st_sampling_method: "heun"
+      st_sampling_steps: 100
+
+      fid_width_px: 518
+      fid_height_px: 518
+
+      patch_encoder_use_grad_checkpointing: False  # True
+      dit_cond_use_grad_checkpointing: False  # True
+
+
+      batch_size: ${data_config.params.train_dataloader_config.batch_size}
+      lr: 1e-4
+      max_epochs: -1  # -1: inf epoch
+      max_steps: -1 # -1: inf iterations
+      gradient_clip_val: 10.  # gradient clipping value
+      num_sanity_val_steps: 2  # number of validation steps to run before training starts, useful to make sure validation runs ok
+      val_check_interval: 2500  # validation is performed every `val_check_interval` iterations
+      monitor_loss_name: 'loss/total_loss'  # name of the log of monitor
+      weight_decay: 0.01
+      beta1: 0.9
+      beta2: 0.999
+      plot_lr: False
+
+      lr_scheduler_config:
+        target: lito.script_utils.lr_scheduler.LinearWarmup
+        params:
+          max_lr: ${plm_config.params.optim_config.lr}
+          min_lr: 1e-6
+          warmup_steps: 5000
+

@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiTo - Image to 3D</title>
+    <style>
+        :root {
+            /* Dark theme (default) */
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --bg-elevated: rgba(28, 28, 30, 0.8);
+            --text-primary: #ffffff;
+            --text-secondary: #98989d;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent: #0a84ff;
+            --accent-hover: #409cff;
+            --success: #30d158;
+            --success-bg: rgba(48, 209, 88, 0.15);
+            --success-text: #30d158;
+            --viewer-bg: #000000;
+        }
+        [data-theme="light"] {
+            --bg-primary: #f5f5f7;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f5f5f7;
+            --bg-elevated: rgba(255, 255, 255, 0.8);
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: rgba(0, 0, 0, 0.04);
+            --accent: #007aff;
+            --accent-hover: #0066d6;
+            --success: #34c759;
+            --success-bg: linear-gradient(135deg, #d1f5d3 0%, #c8f0ca 100%);
+            --success-text: #1d7a2f;
+            --viewer-bg: #f5f5f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 24px;
+            -webkit-font-smoothing: antialiased;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin-bottom: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 2.5em;
+            letter-spacing: -0.02em;
+        }
+        .theme-toggle {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .theme-toggle-label {
+            font-size: 0.8125em;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .theme-toggle-track {
+            width: 52px;
+            height: 28px;
+            background: var(--bg-tertiary);
+            border-radius: 14px;
+            position: relative;
+            transition: background 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+        .theme-toggle-track::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            transition: transform 0.3s ease, background 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        [data-theme="light"] .theme-toggle-track::after {
+            transform: translateX(24px);
+        }
+        .theme-toggle:hover .theme-toggle-track {
+            background: var(--bg-secondary);
+        }
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            font-size: 1.125em;
+            font-weight: 400;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: var(--bg-elevated);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 28px;
+            flex: 1 1 400px;
+            min-width: 0;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        /* Portrait orientation: stack columns vertically */
+        @media (max-aspect-ratio: 4/3) {
+            .container {
+                flex-direction: column;
+            }
+            .panel {
+                flex: 1 1 auto;
+            }
+        }
+        /* Very tall screens (phones): additional adjustments */
+        @media (max-aspect-ratio: 3/4) {
+            body {
+                padding: 20px 16px;
+            }
+            .panel {
+                padding: 20px;
+                border-radius: 16px;
+            }
+            h1 {
+                font-size: 1.75em;
+            }
+            .subtitle {
+                font-size: 1em;
+                margin-bottom: 24px;
+            }
+            .theme-toggle-label {
+                display: none;
+            }
+            .preview-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .image-preview {
+                height: 120px;
+            }
+            .viewer-container {
+                height: 50vh;
+            }
+        }
+        .panel h2 {
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-size: 1.25em;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .input-group { margin-bottom: 20px; }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 0.9375em;
+            font-weight: 500;
+        }
+        .input-group input[type="file"] {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9375em;
+            transition: background 0.2s ease;
+        }
+        .input-group input[type="file"]:hover { background: var(--bg-secondary); }
+        .input-group input[type="range"] {
+            width: 100%;
+            margin-top: 8px;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            border-radius: 3px;
+            outline: none;
+        }
+        .input-group input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 3px;
+            opacity: 0.4;
+        }
+        .input-group input[type="range"]::-moz-range-track {
+            width: 100%;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 3px;
+            opacity: 0.4;
+        }
+        .input-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            margin-top: -7px;
+        }
+        .input-group input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            border: none;
+        }
+        .input-group .value {
+            float: right;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--accent);
+            border-radius: 6px;
+        }
+        .checkbox-group label {
+            cursor: pointer;
+            font-size: 0.9375em;
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+        .preview-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .preview-col { flex: 1; }
+        .preview-col .label {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+        .image-preview {
+            width: 100%;
+            height: 150px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+            border: 2px dashed transparent;
+        }
+        .image-preview.drop-zone {
+            cursor: pointer;
+        }
+        .image-preview.drag-over {
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+            transform: scale(1.02);
+        }
+        .image-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .image-preview .placeholder { color: var(--text-secondary); font-size: 0.875em; text-align: center; padding: 10px; }
+        button {
+            width: 100%;
+            padding: 14px 20px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: -0.01em;
+        }
+        button:hover { background: var(--accent-hover); transform: scale(0.98); }
+        button:active { transform: scale(0.96); }
+        button:disabled {
+            background: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+        .viewer-container {
+            width: 100%;
+            height: 420px;
+            background: var(--viewer-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+            border: 2px dashed transparent;
+            position: relative;
+        }
+        .viewer-container.drag-over {
+            border-color: var(--accent);
+            transform: scale(1.01);
+        }
+        .viewer-container canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .viewer-container .viewer-btn {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-elevated);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+        .viewer-container .viewer-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.75em;
+            font-weight: 500;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .viewer-container .viewer-btn:hover::after {
+            opacity: 1;
+        }
+        .viewer-container .viewer-btn:hover {
+            transform: scale(1.05);
+        }
+        .viewer-container .viewer-btn:active {
+            transform: scale(0.95);
+        }
+        .viewer-container .viewer-btn svg {
+            width: 20px;
+            height: 20px;
+            color: var(--text-primary);
+        }
+        .viewer-container .recenter-btn {
+            bottom: 16px;
+            right: 16px;
+        }
+        .viewer-container .fullscreen-btn {
+            bottom: 16px;
+            right: 64px;
+        }
+        .viewer-container .fullscreen-btn .icon-collapse {
+            display: none;
+        }
+        /* Fullscreen styles */
+        .viewer-container:fullscreen,
+        .viewer-container:-webkit-full-screen {
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            background: var(--viewer-bg);
+        }
+        .viewer-container:fullscreen .fullscreen-btn .icon-expand,
+        .viewer-container:-webkit-full-screen .fullscreen-btn .icon-expand {
+            display: none;
+        }
+        .viewer-container:fullscreen .fullscreen-btn .icon-collapse,
+        .viewer-container:-webkit-full-screen .fullscreen-btn .icon-collapse {
+            display: block;
+        }
+        #axisWidget {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 100px;
+            height: 100px;
+            pointer-events: none;
+        }
+        .viewer-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            font-size: 0.9375em;
+            text-align: center;
+            padding: 20px;
+        }
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-container.active { display: block; }
+        .progress-step {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .progress-step:last-child { border-bottom: none; }
+        .progress-step .icon {
+            width: 26px;
+            height: 26px;
+            margin-right: 14px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .progress-step.active .icon {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
+        .progress-step.done .icon {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+        }
+        .progress-step .name {
+            flex: 1;
+            color: var(--text-secondary);
+            font-size: 0.9375em;
+            transition: color 0.2s ease;
+        }
+        .progress-step.active .name { color: var(--text-primary); font-weight: 500; }
+        .progress-step.done .name { color: var(--text-primary); }
+        .progress-step .time {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 0.875em;
+        }
+        .total-time {
+            margin-top: 16px;
+            padding: 14px;
+            background: var(--success-bg);
+            border-radius: 12px;
+            text-align: center;
+            color: var(--success-text);
+            font-size: 0.9375em;
+            font-weight: 500;
+            display: none;
+        }
+        .total-time.active { display: block; }
+        .download-btn {
+            margin-top: 16px;
+            background: var(--bg-tertiary);
+            color: var(--accent);
+            border: none;
+            text-decoration: none;
+            display: none;
+            text-align: center;
+            padding: 14px 20px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 1em;
+            transition: all 0.2s ease;
+        }
+        .download-btn:hover { background: var(--bg-secondary); }
+        .download-btn.active { display: block; }
+        .format-toggle {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: 12px;
+        }
+        .format-btn {
+            flex: 1;
+            padding: 10px 16px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 10px;
+            font-size: 0.875em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .format-btn:hover { color: var(--text-primary); }
+        .format-btn.active {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .advanced-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.9375em;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+        .advanced-toggle:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        .advanced-toggle.open {
+            color: var(--text-primary);
+            margin-bottom: 0;
+            border-radius: 12px 12px 0 0;
+        }
+        .advanced-toggle .chevron {
+            width: 18px;
+            height: 18px;
+            transition: transform 0.2s ease;
+        }
+        .advanced-toggle.open .chevron {
+            transform: rotate(180deg);
+        }
+        .advanced-settings {
+            display: none;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 0 0 12px 12px;
+            margin-bottom: 20px;
+        }
+        .advanced-settings.open {
+            display: block;
+        }
+        .advanced-settings .input-group {
+            margin-bottom: 0;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/",
+            "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@0.1.10/dist/spark.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="header">
+        <h1>LiTo</h1>
+        <div class="theme-toggle" id="themeToggle" title="Toggle theme">
+            <span class="theme-toggle-label">Theme</span>
+            <div class="theme-toggle-track"></div>
+        </div>
+    </div>
+    <p class="subtitle">Image to 3D Generation</p>
+
+    <div class="container">
+        <div class="panel">
+            <h2>Input</h2>
+
+            <div class="input-group">
+                <label>Upload Image</label>
+                <input type="file" id="imageInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+            </div>
+
+            <div class="preview-row">
+                <div class="preview-col">
+                    <div class="label">Original</div>
+                    <div class="image-preview drop-zone" id="originalPreview">
+                        <span class="placeholder">Drop image here<br>or use file picker above</span>
+                    </div>
+                </div>
+                <div class="preview-col">
+                    <div class="label">Processed</div>
+                    <div class="image-preview" id="processedPreview">
+                        <span class="placeholder">No image</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="advanced-toggle" id="advancedToggle">
+                <span>Advanced Settings</span>
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </div>
+
+            <div class="advanced-settings" id="advancedSettings">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="removeBgCheckbox" checked>
+                    <label for="removeBgCheckbox">Remove background</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="cropCheckbox" checked>
+                    <label for="cropCheckbox">Crop image</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="keepOpticalAxis" checked>
+                    <label for="keepOpticalAxis">Keep optical axis when cropping</label>
+                </div>
+
+                <div class="input-group">
+                    <label>Sampling Steps <span class="value" id="stepsValue">20</span></label>
+                    <input type="range" id="stepsSlider" min="1" max="100" value="20">
+                </div>
+
+                <div class="input-group">
+                    <label>CFG Scale <span class="value" id="cfgValue">3.0</span></label>
+                    <input type="range" id="cfgSlider" min="1" max="10" step="0.1" value="3.0">
+                </div>
+            </div>
+
+            <button type="button" id="generateBtn">Generate 3D Model</button>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-step" id="step-preprocess">
+                    <div class="icon">1</div>
+                    <span class="name">Preprocessing</span>
+                    <span class="time"></span>
+                </div>
+                <div class="progress-step" id="step-sampling">
+                    <div class="icon">2</div>
+                    <span class="name">Sampling</span>
+                    <span class="time"></span>
+                </div>
+                <div class="progress-step" id="step-decoding">
+                    <div class="icon">3</div>
+                    <span class="name">Decoding</span>
+                    <span class="time"></span>
+                </div>
+                <div class="progress-step" id="step-saving">
+                    <div class="icon">4</div>
+                    <span class="name">Saving</span>
+                    <span class="time"></span>
+                </div>
+                <div class="progress-step" id="step-compressing">
+                    <div class="icon">5</div>
+                    <span class="name">Compressing</span>
+                    <span class="time"></span>
+                </div>
+            </div>
+
+            <div class="total-time" id="totalTime"></div>
+        </div>
+
+        <div class="panel">
+            <h2>3D Output</h2>
+            <div class="viewer-container" id="viewerContainer">
+                <canvas id="viewerCanvas"></canvas>
+                <div class="viewer-placeholder" id="viewerPlaceholder">Generated 3D model will appear here<br><small>or drop a .ply/.spz file to view</small></div>
+                <button class="viewer-btn fullscreen-btn" id="fullscreenBtn" data-tooltip="Fullscreen" style="display: none;">
+                    <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                    <svg class="icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 14 10 14 10 20"></polyline>
+                        <polyline points="20 10 14 10 14 4"></polyline>
+                        <line x1="14" y1="10" x2="21" y2="3"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+                <button class="viewer-btn recenter-btn" id="recenterBtn" data-tooltip="Reset View" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M3 12h3m12 0h3M12 3v3m0 12v3"></path>
+                    </svg>
+                </button>
+                <div id="axisWidget"></div>
+            </div>
+            <div class="format-toggle" id="formatToggle" style="display: none;">
+                <button type="button" id="spzBtn" class="format-btn active">SPZ</button>
+                <button type="button" id="plyBtn" class="format-btn">PLY</button>
+            </div>
+            <a id="downloadLink" class="download-btn" href="#" download="model.ply">Download PLY</a>
+        </div>
+    </div>
+
+    <script>
+        // Theme management
+        const themeToggle = document.getElementById('themeToggle');
+
+        function getTheme() {
+            return localStorage.getItem('theme') || 'dark';
+        }
+
+        function setTheme(theme) {
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        // Initialize theme
+        setTheme(getTheme());
+
+        themeToggle.onclick = function() {
+            const currentTheme = getTheme();
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+            // Update viewer background color
+            if (window.updateViewerBackground) {
+                window.updateViewerBackground();
+            }
+        };
+
+        const imageInput = document.getElementById('imageInput');
+        const originalPreview = document.getElementById('originalPreview');
+        const processedPreview = document.getElementById('processedPreview');
+        const removeBgCheckbox = document.getElementById('removeBgCheckbox');
+        const cropCheckbox = document.getElementById('cropCheckbox');
+        const keepOpticalAxis = document.getElementById('keepOpticalAxis');
+        const stepsSlider = document.getElementById('stepsSlider');
+        const stepsValue = document.getElementById('stepsValue');
+        const cfgSlider = document.getElementById('cfgSlider');
+        const cfgValue = document.getElementById('cfgValue');
+        const generateBtn = document.getElementById('generateBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const totalTimeEl = document.getElementById('totalTime');
+        const viewerContainer = document.getElementById('viewerContainer');
+        const downloadLink = document.getElementById('downloadLink');
+        const formatToggle = document.getElementById('formatToggle');
+        const spzBtn = document.getElementById('spzBtn');
+        const plyBtn = document.getElementById('plyBtn');
+        const advancedToggle = document.getElementById('advancedToggle');
+        const advancedSettings = document.getElementById('advancedSettings');
+
+        let currentFile = null;
+        let currentPreprocessId = null;
+        let currentResult = null; // Store generation result for format switching
+
+        // Advanced settings toggle
+        advancedToggle.onclick = function() {
+            advancedToggle.classList.toggle('open');
+            advancedSettings.classList.toggle('open');
+        };
+
+        stepsSlider.oninput = function() { stepsValue.textContent = this.value; };
+        cfgSlider.oninput = function() { cfgValue.textContent = parseFloat(this.value).toFixed(1); };
+
+        imageInput.onchange = async function(e) {
+            currentFile = e.target.files[0];
+            currentPreprocessId = null;
+            if (currentFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    originalPreview.innerHTML = '<img src="' + e.target.result + '">';
+                };
+                reader.readAsDataURL(currentFile);
+                await updateProcessedPreview();
+            }
+        };
+
+        cropCheckbox.onchange = async function() {
+            if (currentFile) {
+                currentPreprocessId = null;
+                await updateProcessedPreview();
+            }
+        };
+
+        keepOpticalAxis.onchange = async function() {
+            if (currentFile) {
+                currentPreprocessId = null;
+                await updateProcessedPreview();
+            }
+        };
+
+        removeBgCheckbox.onchange = async function() {
+            if (currentFile) {
+                currentPreprocessId = null;
+                await updateProcessedPreview();
+            }
+        };
+
+        async function updateProcessedPreview() {
+            if (!currentFile) return;
+            generateBtn.disabled = true;
+            processedPreview.innerHTML = '<span class="placeholder">Processing...</span>';
+
+            const formData = new FormData();
+            formData.append('image', currentFile);
+            formData.append('crop', cropCheckbox.checked ? 'true' : 'false');
+            formData.append('remove_bg', removeBgCheckbox.checked ? 'true' : 'false');
+            formData.append('keep_optical_axis', keepOpticalAxis.checked ? 'true' : 'false');
+
+            try {
+                const response = await fetch('./preprocess', { method: 'POST', body: formData });
+                const result = await response.json();
+                processedPreview.innerHTML = '<img src="data:image/png;base64,' + result.image_base64 + '">';
+                currentPreprocessId = result.preprocess_id;
+                generateBtn.disabled = false;
+            } catch (error) {
+                processedPreview.innerHTML = '<span class="placeholder">Error</span>';
+                currentPreprocessId = null;
+                generateBtn.disabled = true;
+            }
+        }
+
+        // Drag and drop for image upload
+        function setupImageDropZone() {
+            const dropZone = originalPreview;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'));
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'));
+            });
+
+            dropZone.addEventListener('drop', async e => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.type.startsWith('image/')) {
+                        currentFile = file;
+                        currentPreprocessId = null;
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            originalPreview.innerHTML = '<img src="' + e.target.result + '">';
+                        };
+                        reader.readAsDataURL(file);
+                        await updateProcessedPreview();
+                    }
+                }
+            });
+
+            // Also make it clickable to trigger file input
+            dropZone.addEventListener('click', () => imageInput.click());
+        }
+
+        // Drag and drop for 3D viewer (PLY/SPZ files) - handled by module script below
+        function setupViewerDropZone() {
+            // Drag events on viewerContainer
+            ['dragenter', 'dragover'].forEach(eventName => {
+                viewerContainer.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    viewerContainer.classList.add('drag-over');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                viewerContainer.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    viewerContainer.classList.remove('drag-over');
+                });
+            });
+
+            viewerContainer.addEventListener('drop', async e => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    const fileName = file.name.toLowerCase();
+                    if (fileName.endsWith('.ply') || fileName.endsWith('.spz')) {
+                        const format = fileName.endsWith('.spz') ? 'spz' : 'ply';
+                        // Load file bytes and pass to viewer
+                        const fileBytes = new Uint8Array(await file.arrayBuffer());
+                        window.loadSplatFromBytes(fileBytes, fileName, format);
+                        // Hide format toggle and download for dropped files
+                        formatToggle.style.display = 'none';
+                        downloadLink.className = 'download-btn';
+                    }
+                }
+            });
+        }
+
+        // Initialize drop zones
+        setupImageDropZone();
+        setupViewerDropZone();
+
+        function resetProgress() {
+            const steps = ['preprocess', 'sampling', 'decoding', 'saving', 'compressing'];
+            const icons = {'preprocess': '1', 'sampling': '2', 'decoding': '3', 'saving': '4', 'compressing': '5'};
+            steps.forEach(step => {
+                const el = document.getElementById('step-' + step);
+                el.className = 'progress-step';
+                el.querySelector('.icon').textContent = icons[step];
+                el.querySelector('.time').textContent = '';
+            });
+            totalTimeEl.className = 'total-time';
+            progressContainer.className = 'progress-container';
+            formatToggle.style.display = 'none';
+            currentResult = null;
+        }
+
+        function updateStepProgress(step, status, time) {
+            const el = document.getElementById('step-' + step);
+            if (status === 'active') {
+                el.className = 'progress-step active';
+            } else if (status === 'done') {
+                el.className = 'progress-step done';
+                el.querySelector('.icon').textContent = '\u2713';
+                if (time !== undefined) {
+                    el.querySelector('.time').textContent = time.toFixed(2) + 's';
+                }
+            }
+        }
+
+        generateBtn.onclick = async function() {
+            if (!currentPreprocessId) { alert('Please upload and process an image first'); return; }
+
+            generateBtn.disabled = true;
+            resetProgress();
+            progressContainer.className = 'progress-container active';
+            downloadLink.className = 'download-btn';
+
+            const formData = new FormData();
+            formData.append('preprocess_id', currentPreprocessId);
+            formData.append('sampling_steps', stepsSlider.value);
+            formData.append('cfg_scale', cfgSlider.value);
+            formData.append('compress_spz', 'true');
+
+            try {
+                const response = await fetch('./generate-stream', { method: 'POST', body: formData });
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, {stream: true});
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.type === 'progress') {
+                                if (data.progress === 0) updateStepProgress(data.step, 'active');
+                                else if (data.progress === 100) updateStepProgress(data.step, 'done', data.time);
+                            } else if (data.type === 'complete') {
+                                currentResult = data;
+                                if (data.has_spz) {
+                                    // Show SPZ by default
+                                    updateViewer(data.spz_url, 'spz');
+                                    downloadLink.href = data.spz_url;
+                                    downloadLink.download = data.spz_filename;
+                                    downloadLink.textContent = 'Download SPZ (' + data.spz_size + ')';
+                                    formatToggle.style.display = 'flex';
+                                    spzBtn.textContent = 'SPZ (' + data.spz_size + ')';
+                                    plyBtn.textContent = 'PLY (' + data.ply_size + ')';
+                                    spzBtn.classList.add('active');
+                                    plyBtn.classList.remove('active');
+                                } else {
+                                    // PLY only
+                                    updateViewer(data.ply_url, 'ply');
+                                    downloadLink.href = data.ply_url;
+                                    downloadLink.download = data.ply_filename;
+                                    downloadLink.textContent = 'Download PLY (' + data.ply_size + ')';
+                                    formatToggle.style.display = 'none';
+                                }
+                                downloadLink.className = 'download-btn active';
+                                totalTimeEl.innerHTML = '<strong>Total:</strong> ' + data.total_time.toFixed(2) + 's';
+                                totalTimeEl.className = 'total-time active';
+                            } else if (data.type === 'error') {
+                                alert('Error: ' + data.message);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                generateBtn.disabled = false;
+            }
+        };
+
+        // Format toggle handlers
+        spzBtn.onclick = function() {
+            if (!currentResult || !currentResult.has_spz) return;
+            spzBtn.classList.add('active');
+            plyBtn.classList.remove('active');
+            updateViewer(currentResult.spz_url, 'spz');
+            downloadLink.href = currentResult.spz_url;
+            downloadLink.download = currentResult.spz_filename;
+            downloadLink.textContent = 'Download SPZ (' + currentResult.spz_size + ')';
+        };
+
+        plyBtn.onclick = function() {
+            if (!currentResult) return;
+            plyBtn.classList.add('active');
+            spzBtn.classList.remove('active');
+            updateViewer(currentResult.ply_url, 'ply');
+            downloadLink.href = currentResult.ply_url;
+            downloadLink.download = currentResult.ply_filename;
+            downloadLink.textContent = 'Download PLY (' + currentResult.ply_size + ')';
+        };
+
+        // Update viewer - calls the module function
+        function updateViewer(splatUrl, format) {
+            const absoluteUrl = new URL(splatUrl, window.location.href).href;
+            if (window.loadSplatFromUrl) {
+                window.loadSplatFromUrl(absoluteUrl, format);
+            }
+        }
+    </script>
+
+    <!-- 3D Viewer Module -->
+    <script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { SplatMesh } from "@sparkjsdev/spark";
+
+// Elements
+const viewerContainer = document.getElementById('viewerContainer');
+const viewerCanvas = document.getElementById('viewerCanvas');
+const viewerPlaceholder = document.getElementById('viewerPlaceholder');
+const recenterBtn = document.getElementById('recenterBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const axisWidget = document.getElementById('axisWidget');
+
+// Scene setup
+const scene = new THREE.Scene();
+updateBackgroundColor();
+
+// Camera setup
+const camera = new THREE.PerspectiveCamera(60, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 1000);
+camera.position.set(2.5, 0, 0);
+
+// Renderer setup
+const renderer = new THREE.WebGLRenderer({ canvas: viewerCanvas, antialias: true });
+renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+
+// Controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.target.set(0, 0, 0);
+controls.saveState();
+
+// Recenter button
+recenterBtn.onclick = () => controls.reset();
+
+// Fullscreen button
+fullscreenBtn.onclick = () => {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+    } else {
+        if (viewerContainer.requestFullscreen) {
+            viewerContainer.requestFullscreen();
+        } else if (viewerContainer.webkitRequestFullscreen) {
+            viewerContainer.webkitRequestFullscreen();
+        }
+    }
+};
+
+// Axis widget renderer
+const axisRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+axisRenderer.setSize(100, 100);
+axisRenderer.setPixelRatio(window.devicePixelRatio);
+axisRenderer.setClearColor(0x000000, 0);
+axisWidget.appendChild(axisRenderer.domElement);
+
+const axisScene = new THREE.Scene();
+const axisCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 10);
+axisCamera.position.set(0, 0, 3);
+
+// Create axis with spheres and labels
+const axisLength = 0.8;
+const sphereRadius = 0.15;
+const colors = { x: 0xff4444, y: 0x44ff44, z: 0x4488ff };
+
+function createAxis(dir, color, label) {
+    const group = new THREE.Group();
+    const cylinderRadius = 0.04;
+    const cylinderLength = axisLength - sphereRadius * 0.5;
+    const cylinderGeo = new THREE.CylinderGeometry(cylinderRadius, cylinderRadius, cylinderLength, 8);
+    const cylinderMat = new THREE.MeshBasicMaterial({ color });
+    const cylinder = new THREE.Mesh(cylinderGeo, cylinderMat);
+    cylinder.position.copy(dir.clone().multiplyScalar(cylinderLength / 2));
+    if (dir.x === 1) cylinder.rotation.z = -Math.PI / 2;
+    else if (dir.z === 1) cylinder.rotation.x = Math.PI / 2;
+    group.add(cylinder);
+
+    const sphereGeo = new THREE.SphereGeometry(sphereRadius, 16, 16);
+    const sphereMat = new THREE.MeshBasicMaterial({ color });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.copy(dir.clone().multiplyScalar(axisLength));
+    group.add(sphere);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 32, 32);
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.position.copy(dir.clone().multiplyScalar(axisLength));
+    sprite.scale.set(0.3, 0.3, 1);
+    group.add(sprite);
+    return group;
+}
+
+axisScene.add(createAxis(new THREE.Vector3(1, 0, 0), colors.x, 'X'));
+axisScene.add(createAxis(new THREE.Vector3(0, 1, 0), colors.y, 'Y'));
+axisScene.add(createAxis(new THREE.Vector3(0, 0, 1), colors.z, 'Z'));
+const centerGeo = new THREE.SphereGeometry(0.08, 16, 16);
+const centerMat = new THREE.MeshBasicMaterial({ color: 0x888888 });
+axisScene.add(new THREE.Mesh(centerGeo, centerMat));
+
+// Current splat
+let currentSplat = null;
+let currentFormat = null;
+
+function updateBackgroundColor() {
+    const isDark = localStorage.getItem('theme') !== 'light';
+    scene.background = new THREE.Color(isDark ? 0x000000 : 0xf5f5f7);
+}
+
+function showViewer() {
+    viewerPlaceholder.style.display = 'none';
+    recenterBtn.style.display = 'flex';
+    fullscreenBtn.style.display = 'flex';
+    axisWidget.style.display = 'block';
+}
+
+function loadSplat(init, format) {
+    // Remove old splat
+    if (currentSplat) {
+        scene.remove(currentSplat);
+        currentSplat = null;
+    }
+
+    // Create new splat
+    currentSplat = new SplatMesh(init);
+    // SPZ has coordinate transform applied, PLY needs different rotation
+    // currentSplat.rotation.x = format === 'spz' ? Math.PI / 2 : -Math.PI / 2;
+
+    // we removed unnecessarily rotation in spz (so spz and ply match)
+    currentSplat.rotation.x = -Math.PI / 2;
+
+    scene.add(currentSplat);
+    currentFormat = format;
+
+    // Reset camera
+    controls.reset();
+    showViewer();
+}
+
+// Expose functions to window for non-module scripts
+window.loadSplatFromUrl = function(url, format) {
+    loadSplat({ url }, format);
+};
+
+window.loadSplatFromBytes = function(fileBytes, fileName, format) {
+    loadSplat({ fileBytes, fileName }, format);
+};
+
+window.updateViewerBackground = function() {
+    updateBackgroundColor();
+};
+
+// Handle resize
+const resizeObserver = new ResizeObserver(() => {
+    const width = viewerContainer.clientWidth;
+    const height = viewerContainer.clientHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+});
+resizeObserver.observe(viewerContainer);
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+
+    // Sync axis camera orientation with main camera
+    axisCamera.position.set(0, 0, 3);
+    axisCamera.position.applyQuaternion(camera.quaternion);
+    axisCamera.lookAt(0, 0, 0);
+    axisRenderer.render(axisScene, axisCamera);
+}
+animate();
+    </script>
+</body>
+</html>

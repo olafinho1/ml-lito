@@ -1,0 +1,109 @@
+# This file showcases the structure of the json file
+# (though it is in a yaml file, but the idea transfers).
+# We use json as it is easier to create H_c2w and intrinsic matrices.
+
+# meshes contain a list of meshes to be loaded into the scene.
+# See `read_mesh()`.
+meshes:
+  - name: 'stairs1'
+    filename: '0a0f1b107acb4b94a8211e11ab69a67f.glb'
+    normalize_first: True
+    H_c2w:
+      - [1., 0., 0., 0.5]
+      - [0., 1., 0., 0.]
+      - [0., 0., 1., 0.]
+      - [0., 0., 0., 1.]
+    scale: [1, 1, 1.,]
+
+
+  - name: 'stairs2'
+    filename:  '0a0f1b107acb4b94a8211e11ab69a67f.glb'
+    normalize_first: True
+    H_c2w:
+      - [ 1., 0., 0., 0 ]
+      - [ 0., 1., 0., -0.5 ]
+      - [ 0., 0., 1., 0. ]
+      - [ 0., 0., 0., 1. ]
+    scale: [1, 1, 1.]
+
+
+# cameras contains a list (num_views,) of cameras or
+# a list (num_frames,) of list (num_views,) of cameras.
+# The cameras are in blender coordinates.
+cameras:
+  # camera 1
+  - intrinsic:
+      - [ 512., 0., 256.]
+      - [ 0., 512., 256.]
+      - [ 0., 0., 1.]
+    H_c2w:
+      - [ 1., 0., 0., 0]
+      - [ 0., 1., 0., 0]
+      - [ 0., 0., 1., 5.]
+      - [ 0., 0., 0., 1.]
+    width_px: 512
+    height_px: 512
+
+  # camera 2
+  - intrinsic:
+      - [ 512., 0., 128. ]
+      - [ 0., 512., 128. ]
+      - [ 0., 0., 1. ]
+    H_c2w:
+      - [ 0., 0., 1., 5. ]
+      - [ 0., 1., 0., 0. ]
+      - [ -1., 0., 0., 0. ]
+      - [ 0., 0., 0., 1. ]
+    width_px: 256
+    height_px: 256
+    # below are optional and will overwrite the global settings in `cycles_settings`
+    film_exposure: 1.0
+    filter_width: 1.0  # anti-aliasing filter width (min=0.01)
+    use_denoising: False
+
+
+lighting:
+  - name: 'light 1'
+    light_type: "SUN"
+    H_c2w:
+      - [ 1., 0., 0., 0 ]
+      - [ 0., 1., 0., 0 ]
+      - [ 0., 0., 1., 5.]
+      - [ 0., 0., 0., 1.]
+    energy: 5
+    use_shadow: false
+    specular_factor: 1.
+
+
+# cycles_settings contains the arguments of `setup_blender_cycles`
+# Any arguments not presented will use the default argument values.
+# (Support by blender_utils_v3.py)
+cycles_settings:
+  samples: 128
+  max_bounces: 12
+  diffuse_bounces: 1  # blender default = 4
+  glossy_bounces: 1  # blender default = 4
+  transparent_max_bounces: 1
+  volume_bounces: 0
+  transmission_bounces: 3
+  film_exposure: 1.0
+#  filter_type: "BLACKMAN_HARRIS"  # not presented will use the default
+  filter_width: 1.0  # anti-aliasing filter width (min=0.01)
+  use_denoising: False
+  device: "CPU"  # CPU, GPU
+
+
+# view_layer_settings contains the arguments of `setup_blender_view_layers`
+# Any arguments not presented will use the default argument values.
+# (Support by blender_utils_v3.py)
+view_layer_settings:
+  resolution_x: null  # no need to set, it will be controlled by camera
+  resolution_y: null  # no need to set, it will be controlled by camera
+  view_layer_pass_alpha_threshold: 0.5  # only alpha smaller than the threshold allows ray to pass
+  save_srgb: true
+  save_depth: true
+  save_normal: true
+  save_albedo: true
+  save_obj_id: true
+
+

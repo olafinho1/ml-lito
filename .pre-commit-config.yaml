@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.4
+    hooks:
+      # Run the linter.
+      - id: ruff
+        name: ruff (import sorting)
+        args: [
+          --select=I,
+          --fix,
+        ]
+      # Run the formatter.
+      - id: ruff-format
+        args: [
+          # --exclude=/some/dir
+        ]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1  # check latest release at https://github.com/kynan/nbstripout/tags
+    hooks:
+      - id: nbstripout

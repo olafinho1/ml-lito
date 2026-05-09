@@ -1,0 +1,416 @@
+name: lito_8k32
+wandb_name: ${name}
+wandb_project: fpoint_tokenization  # set to null to debug
+wandb_entity: cds_xd  # jenhao_chang  # set to null to debug
+add_bolt_id_to_wandb_name: true
+num_nodes: 1  # total number of nodes
+strategy: 'ddp'  # debug
+ddp_timeout_min: 60  # set to two days as dataset is large (downloading, unzip takes long time)
+precision: 'bf16-mixed'
+seed: 0  # global random seed
+fast_dev_run: 0  # number of batches to run for train/valid/test to debug, 0: normal run
+limit_val_batches: 10  # int: number of batches to perform validation
+overfit_batches: 0  # 10  # nonzero: debug
+debug: False  # True  # False
+profiler: null  #  "pytorch"  # 'advanced'  # "simple", "advanced", "pytorch"  null   # debug
+accumulate_grad_batches: 1  # 2  # 2  # 4  # debug, important (controls actual batch size)
+
+model_saving_monitor_loss: 'valid/loss_3dgs_lpips_epoch'  # name of the log of monitor
+num_apple_fsspec_threads: 3
+
+
+data_config:
+  target: lito.datasets.obj_wdset.ObjIterableDataModule  # name of the data module specific to the dataset
+  params:
+    method: 'wdset'
+    split_dict_urls:  # train/valid/test -> list of urls
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_200239_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightDiffuse/STAGE_3/20250828_211333/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250823_175916_config_OURSwithTRELLISRenderCodeV11/STAGE_3/20250828_035123/split.json"
+      - "s3://shape-tokenization/datasets/objaverse_tar/TRELLIS500KObjaverse/renderings/20250825_195943_config_OURSHighResUpZAlphaThreshold0AntialiasSepLightRandom/STAGE_3/20250829_095520/split.json"
+
+    train_dataset_config:
+      batch_size: 1
+      mode: 'lito_tokenizer'
+      num_random_views: 12
+      max_num_voxels: 50000
+      nsamples: -1
+      wds_buffer_size: 64  # say 1 sample take 150MB, 64 samples take 10GB, per gpu, per worker
+    train_dataloader_config:
+      batch_size: ${data_config.params.train_dataset_config.batch_size}  # remember to change accumulate_grad_batches
+      shuffle: False
+      collate_fn: lito.datasets.base.list_collate
+      num_workers: 4
+      pin_memory: True
+      drop_last: False
+      prefetch_factor: 4
+      persistent_workers: True
+      wds_shuffle_buffer_size: 32
+      prebatched: True
+      in_order: False
+    valid_dataset_config:
+      batch_size: ${data_config.params.train_dataset_config.batch_size}
+      mode: ${data_config.params.train_dataset_config.mode}
+      num_random_views: ${data_config.params.train_dataset_config.num_random_views}
+      max_num_voxels: ${data_config.params.train_dataset_config.max_num_voxels}
+      nsamples: ${data_config.params.train_dataset_config.nsamples}
+      wds_buffer_size: 0   # say 1 sample take 50MB, 200 samples take 10GB, per gpu, per worker
+    valid_dataloader_config:
+      batch_size: ${data_config.params.valid_dataset_config.batch_size}  # remember to change accumulate_grad_batches
+      shuffle: ${data_config.params.train_dataloader_config.shuffle}
+      collate_fn: ${data_config.params.train_dataloader_config.collate_fn}
+      num_workers: 0
+      pin_memory: ${data_config.params.train_dataloader_config.pin_memory}
+      drop_last: ${data_config.params.train_dataloader_config.drop_last}
+      wds_shuffle_buffer_size: 0
+      prebatched: ${data_config.params.train_dataloader_config.prebatched}
+
+
+# config to the lightning module
+plm_config:
+  target: lito.trainers.lito_trainer.LightTokenizationTrainer
+  params:
+    debug: ${debug}
+    mode: "tokenizer"
+
+    velocity_outputs: ["xyz"]
+
+    center_inputs: ["rgb"]
+
+    min_num_encoder_points: 1048576
+    max_num_encoder_points: 1048576
+    min_num_flow_points: 16384
+    max_num_flow_points: 16384  # 0: turn off velocity decoding
+    t_eps: 1e-3
+    flow_matching_path_type: 'linear'  # 'linear', 'cosine'
+    noise_type: 'gaussian'  # 'uniform', 'gaussian'
+
+    freeze_voxel_decoder: True
+    freeze_mesh_decoder: True
+
+    fpoint_encoder_config:
+      target: lito.models.spoint_encoder.SPointEncoder
+      params:
+        coord_inputs: ['xyz']
+        # mlp (include downsampling)
+        mlp_inputs:
+          - 'xyz'
+          - 'rgb'
+          - 'encoded_ray_origin_direction_w'  # this is plucker
+          - 'encoded_xyz'
+          - 'encoded_rgb'
+
+        mlp_config_dict: null  # target, params
+        # init perceiver query
+        init_query_method: 'subsample'
+        init_query_config:
+          num_latent: 8192
+          cell_width: null
+        # perceiver
+        perceiver_inputs: ['feature']
+        perceiver_config_dict:  # target, params
+          target: lito.models.spoint_encoder.SPointPerceiverEncoder
+          params:
+            dim_latent: 512  # perceiver_dim
+            num_blocks: 2
+            dim_qkv: 512
+            cross_attn_type: 'localized_knn'
+            self_attn_type: 'localized_voxel'
+            num_in_cluster: null   # used by self localized_knn
+            num_clusters: null  # used by self localized_knn
+            cross_cell_widths: 0.25  # used by cross localized_voxel
+            self_cell_widths: 0.25  # used by self localized_voxel
+            num_self_attn: 6
+            num_self_heads: 16
+            num_cross_heads: 16
+            dropout_prob: 0
+            use_rmsnorm: True
+            mlp_ratio: 4
+            mlp_type: "swiglu"
+            linear_in_attn_add_bias: True
+            mlp_add_bias: True
+            add_kv_linear: True
+        # vperceiver (to convert set latent to vector latent)
+        vperceiver_init_query_method: null
+        vperceiver_init_query_config: null
+        vperceiver_inputs: null
+        vperceiver_config_dict: null
+        # final layer
+        dim_output: 32
+        # positional encoding
+        xyz_pos_encoding_config: null
+        rgb_pos_encoding_config: null
+        tao_pos_encoding_config: null
+        pos_encoding_configs:
+          xyz:  # target, params
+            target: lito.models.layers.FourierEmbed
+            params:
+              dim_pos: 3
+              include_input: False
+              min_freq_log2: 0
+              max_freq_log2: 12
+              num_freqs: 32
+              log_sampling: True
+          rgb:
+            target: lito.models.layers.FourierEmbed
+            params:
+              dim_pos: 3
+              include_input: False
+              min_freq_log2: 0
+              max_freq_log2: 8
+              num_freqs: 32
+              log_sampling: True
+          ray_origin_direction_w:
+            target: lito.models.layers.PluckerEmbed
+            params: {}  # empty dict
+
+        convert_output_to_batch_format: True
+
+    time_embedder_config:
+      target: lito.models.layers.TimeEmbedder
+      params:
+        dim_output: 64
+        max_timestamp: 1
+        num_freqs: 16
+        mlp_dim_feature: 64
+
+    velocity_decoder_config:
+      target: lito.models.point_decoder.VelocityCrossAttnDecoder  # no velocity
+      params:
+        num_latent: null
+        dim_latent: ${plm_config.params.fpoint_encoder_config.params.dim_output}
+        dim_point: 3  # xyz
+
+        # block
+        num_blocks: 3
+        dim_qkv: 512
+        dim_cond_feature: ${plm_config.params.time_embedder_config.params.dim_output}
+        num_self_attn: 0
+        num_self_heads: 8
+        num_cross_heads: 8
+        dropout_prob: 0
+        use_rmsnorm: True
+        mlp_ratio: 4
+        dim_net: 512
+
+        # positional encoding
+        pos_enc_name_xyz: "fourier"
+        min_freq_log2: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.min_freq_log2}
+        max_freq_log2: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.max_freq_log2}
+        num_freqs: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.num_freqs}
+
+        # output
+        dim_output: ${plm_config.params.velocity_decoder_config.params.dim_point}
+
+    gs_decoder_config:
+      target: lito.models.point_decoder.GaussianDecoderXv
+      params:
+        dim_latent: ${plm_config.params.fpoint_encoder_config.params.dim_output}
+        given_point_inputs: ['xyz', 'xyz_encoded']
+        num_given_mlp_layers: 1
+
+        # perceiver
+        perceiver_dim: 512
+        perceiver_num_blocks: 6
+        perceiver_num_self_attn: 2
+        perceiver_cross_attn_type: "global"
+        perceiver_self_attn_type: "localized_voxel"
+
+        # gs
+        gs_expansion_ratio: 64
+        gs_num_output_mlp_layers: 1
+        gs_shape_outputs: ['xyz_w', 'quaternion_prenorm', 'scaling_logit']
+        gs_color_outputs: ['opacity_logit', 'rgb_sh']
+
+        # perceiver attention settings
+        perceiver_num_in_cluster: null
+        perceiver_num_clusters: null
+        perceiver_cross_cell_widths: null
+        perceiver_self_cell_widths: 0.25  # 2 / 8
+
+        # region properties
+        region_scaling: 0.05
+
+        # gaussian properties
+        rgb_sh_degree: 3
+        bound_output_rgb: false
+        fixed_bound_output_rgb_bug: True
+        # properties
+        use_unit_opacity: False
+        opacity_logit_bias: 0.1
+        opacity_logit_scale: 1.0
+        min_opacity: 0
+        max_opacity: 1
+        min_opacity_clip: null
+        max_opacity_clip: null
+        max_scaling: null
+        scaling_activation: "sigmoid"
+        scaling_scalar: 0.01
+        scaling_logit_bias: 0
+        min_scaling: 0.001
+        #
+        num_heads: 8
+        mlp_type: "swiglu"
+        linear_in_attn_add_bias: True
+        mlp_add_bias: False
+
+        # positional encoding for point
+        pos_enc_name_xyz: "fourier"
+        pos_enc_config:
+          dim_pos: 3
+          include_input: False
+          min_freq_log2: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.min_freq_log2}
+          max_freq_log2: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.max_freq_log2}
+          num_freqs: ${plm_config.params.fpoint_encoder_config.params.pos_encoding_configs.xyz.params.num_freqs}
+          log_sampling: True
+
+    voxel_decoder_config:
+      target: lito.models.point_decoder.SSLatentDecoder
+      params:
+        num_latent: null
+        dim_latent: ${plm_config.params.fpoint_encoder_config.params.dim_output}
+        res_ss_latent: 16
+        dim_ss_latent: 8
+
+        # block
+        num_blocks: 4
+        dim_perceiver: 512
+        dim_qkv: 1024
+        num_self_attn: 2
+        num_self_heads: 8
+        num_cross_heads: 8
+        dropout_prob: 0
+        use_rmsnorm: True
+        mlp_ratio: 4
+
+        # input linear (applied to input rays)
+        add_input_linear: True
+        dim_input_linear: 512
+
+    mesh_decoder_config:
+      target: lito.models.point_decoder.MeshDecoder_v2
+      params:
+        dim_latent: ${plm_config.params.fpoint_encoder_config.params.dim_output}
+        grid_size: 64
+        # mlp on the input occ
+        num_given_mlp_layers: 1
+        model_vertex_normal: True
+        # perceiver (q: occ, kv: shape token)
+        perceiver_dim: 512
+        perceiver_num_blocks: 6
+        perceiver_num_self_attn: 2
+        perceiver_self_attn_type: 'localized_voxel'
+        # perceiver attention settings
+        perceiver_num_in_cluster: null
+        perceiver_num_clusters: null
+        #
+        num_heads: 16
+        mlp_type: "swiglu"
+        linear_in_attn_add_bias: True
+        mlp_add_bias: True
+        # positional encoding for point
+        pos_enc_name_xyz: "fourier"
+        pos_enc_config:
+          dim_pos: 3
+          include_input: True
+          min_freq_log2: 0
+          max_freq_log2: 12
+          num_freqs: 32
+          log_sampling: True
+
+    mesh_optim_config:
+      mesh_occ_grid_source: model_est  # data, model_est
+
+      normal_align_mode: 'origin'
+      glctx: cuda
+
+      use_masked_loss: true
+
+      # expand the GT occupancy grid
+      min_num_occ_to_add: 0
+      max_num_occ_to_add: 0
+      # - dilate: dilate boundary by some voxels
+      # - total: the number of TOTAL occupied voxels to be added is from min_num_occ_to_add/max_num_occ_to_add
+      occ_expand_type: dilate
+
+      # mask
+      loss_weight_mask: 1.0
+      # xyz in camera coordinates
+      loss_weight_xyz_c: 10.0
+      loss_weight_xyz_c_l2_sqrt: 1.0
+      # depth
+      loss_weight_z_c: 0.0 # 10.0
+      loss_weight_z_c_huber: 1.0
+      loss_weight_z_c_l2: 0.0
+      # face normal
+      loss_weight_face_normal: 1.0
+      loss_weight_face_normal_sinusoid: 1.0
+      loss_weight_face_normal_l1: 0.0
+      loss_weight_face_normal_ssim: 0.0
+      loss_weight_face_normal_lpips: 0.0
+      # vertex normal
+      loss_weight_vertex_normal: 1.0
+      loss_weight_vertex_normal_sinusoid: 1.0
+      loss_weight_vertex_normal_l1: 0.0
+      loss_weight_vertex_normal_ssim: 0.0
+      loss_weight_vertex_normal_lpips: 0.0
+      # regularization
+      loss_weight_reg: 1.0
+      loss_weight_reg_sdf: 0.2
+
+    ode_sampling_method: 'euler'
+
+    optim_config:
+      batch_size: ${data_config.params.train_dataloader_config.batch_size}
+      lr: 1e-4  # This does not matter if we use TFScheduler
+      max_epochs: -1  # -1: inf epoch
+      max_steps: -1   # -1: inf iterations  # debug
+      gradient_clip_val: 1  # gradient clipping value
+      num_sanity_val_steps: 1  # number of validation steps to run before training starts, useful to make sure validation runs ok
+      val_check_interval: 2000  # validation is performed every `val_check_interval` iterations
+      monitor_loss_name: 'loss/total_loss'  # name of the log of monitor
+      weight_decay: 0
+      beta1: 0.9
+      beta2: 0.98
+      plot_lr: False
+      artifact_dir: '/mnt/task_wrapper/user_output/artifacts'
+      min_iter_ms: 0
+      debug_xyz: False
+
+      # loss weights
+      loss_weight_velocity: 1.
+
+      # 3dgs
+      loss_weight_3dgs: 1
+
+      loss_weight_rgb: 1
+      loss_weight_rgb_l1: 1
+      loss_weight_rgb_ssim: 0
+      loss_weight_rgb_lpips: 0.2
+
+      # voxel
+      loss_weight_voxel_l2: 0
+      loss_weight_voxel_l1: 0
+      loss_weight_voxel_huber: 1
+
+      mip_kernel_size: 0.1
+
+      # kl (random init network: 1e-4)
+      loss_weight_kl: 0  # ||s1-s2||^2
+      loss_weight_kl_global: 0.0001  # ||s1||^2
+      std_posterior: 0.001
+
+      # control batch time (to balance data loading and compute, avoid batch starving)
+      min_forward_sec: -1  # -1: any
+
+      spoint_encoder_use_grad_checkpointing: True
+      gs_decoder_use_grad_checkpointing: True
+      lpips_use_grad_checkpointing: True
+
+      lr_scheduler_config:
+        target: lito.script_utils.lr_scheduler.TFScheduler
+        params:
+          model_size: ${plm_config.params.fpoint_encoder_config.params.perceiver_config_dict.params.dim_latent}
+          lr_factor: 0.4
+          warmup_steps: 4000
+
+
