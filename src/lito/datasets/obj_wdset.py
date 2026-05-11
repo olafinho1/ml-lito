@@ -25,7 +25,10 @@ import webdataset as wds  # noqa
 import torch
 from torch.utils.data import IterableDataset
 
-import apple_fsspec as af
+try:
+    import apple_fsspec as af
+except ImportError:
+    pass
 
 from lito.datasets import base
 from plibs import byte_dict_utils, data_utils, linalg_utils, o3d_utils, structures, utils, wds_utils

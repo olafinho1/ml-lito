@@ -34,9 +34,6 @@ try:
     TRELLIS_IMPORTED = True
 except:
     print("trellis not imported, need to do bash environment/setup_trellis.sh")
-    print(f"\n{__file__=}")
-    traceback.print_exc()
-    print("\n\n")
     TRELLIS_IMPORTED = False
 
 

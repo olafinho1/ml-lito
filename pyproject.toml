@@ -40,7 +40,7 @@ dependencies = [
 # Pip users run: pip install ".[vis]"
 # UV users run: uv sync --extra vis
 # Pixi users run: pixi install -e full
-# Pixi automatically creates "vis", "dev", "apple" features from this!
+# Pixi automatically creates "vis", "dev" features from this!
 [project.optional-dependencies]
 vis = [
     "matplotlib",
@@ -111,16 +111,10 @@ trellis = [
     "utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
 ]
 
-apple = [
-    "apple-bolt",
-    "iris-ml-ctl",
-    "parabolt",
-    "apple-fsspec",
-]
 
 # The "Meta" Group (Optional, but nice for pip users)
 all = [
-    "lito[geom,eval,vis,dev,trellis,apple]"
+    "lito[geom,eval,vis,dev,trellis]"
 ]
 
 
@@ -185,7 +179,7 @@ cmake = "*"
 pkg-config = "*"
 
 [tool.pixi.target.linux-64.pypi-dependencies]
-mlx = { version = "*", extras = ["cuda"] }
+mlx = { version = "*" }
 nvdiffrast = { git = "https://github.com/NVlabs/nvdiffrast.git" }
 spconv-cu126 = "*"
 
@@ -222,9 +216,9 @@ ENV_TAG = "pt291"
 
 
 # --- 5. ENVIRONMENTS ---
-# Pixi automatically found the features "vis", "dev", "apple" from [project.optional-dependencies]
+# Pixi automatically found the features "vis", "dev" from [project.optional-dependencies]
 [tool.pixi.environments]
-default = ["pt291", "geom", "eval", "vis", "dev", "trellis", "apple"]
+default = ["pt291", "geom", "eval", "vis", "dev", "trellis"]
 
 
 
@@ -274,7 +268,6 @@ post-install = { depends-on = [
 
 # --- 7. UV / PIXI INDEX CONFIG ---
 [tool.pixi.pypi-options]
-extra-index-urls = ["https://pypi.apple.com/simple"]
 no-build-isolation = [
     "nvdiffrast",
     "diff_gauss",
@@ -288,14 +281,6 @@ no-build-isolation = [
     "fused_ssim",
     "torchsparse",
 ]
-
-
-# UV reads this
-# Standard PIP does NOT read this (User must manually config pip for apple-bolt)
-#[[tool.uv.index]]
-#name = "apple-pypi"
-#url = "https://pypi.apple.com/simple"
-#explicit = false
 
 
 
@@ -357,7 +342,6 @@ section-order = [
     "standard-library",
     "third-party",
     "torch",
-    "apple",
     "first-party",
     "local-folder",
 ]
@@ -370,4 +354,3 @@ known-first-party = [
 
 [tool.ruff.lint.isort.sections]
 "torch" = ["torch", "torchvision", "pytorch3d"]
-"apple" = ["turibolt", "parabolt", "apple_fsspec", "dask_bolt"]

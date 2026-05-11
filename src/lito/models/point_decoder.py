@@ -41,10 +41,7 @@ except ImportError:
     # Optional on macOS / non-CUDA installs: TRELLIS's mesh decoder pulls in
     # flash_attn which isn't available everywhere. Code paths that need these
     # modules (mesh decoder) will fail at runtime; the rest of the file works.
-    print(f"\n{__file__=}")
-    print("\n\nTrellis not imported, need to do `bash env/scripts/setup_trellis.sh`. Traceback is")
-    traceback.print_exc()
-    print("\n\n")
+    print("Trellis not imported, need to do `bash env/scripts/setup_trellis.sh`.")
     trellis_mesh = None
     slat_vae_mesh = None
     sp = None

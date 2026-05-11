@@ -380,6 +380,8 @@ def worker_init_function(
         print(f"seeding dataset on global rank {global_rank} worker id {worker_id} with {dset_seed}")
         # dataset.set_seed(dset_seed)
     except:
+        import traceback
+
         traceback.print_exc()
 
 

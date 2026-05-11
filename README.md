@@ -40,7 +40,11 @@ We propose a latent 3D representation that jointly models object geometry and vi
     
     ```sh
     # The following command will install pixi and create the environment. 
-    bash env/setup.sh
+    # on ubuntu
+    # bash env/setup.sh
+    
+    # on mac 
+    # bash env/setup_mac.sh
     ```
 
 ## Pretrained Models
