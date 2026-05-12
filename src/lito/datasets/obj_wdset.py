@@ -1651,7 +1651,7 @@ class ObjIterableDataset(IterableDataset):
 
             # Since the point_ray_d is normalized, we do not need to change it
             rgbd.depth = rgbd.depth * scene_renormalize_scale
-            rgbd.camera.H_c2w[:, :3, 3] = rgbd.camera.H_c2w[:, :3, 3] * scene_renormalize_scale
+            rgbd.camera.H_c2w[..., :3, 3] = rgbd.camera.H_c2w[..., :3, 3] * scene_renormalize_scale
 
         assert rgbd.rgb.isfinite().all(), (
             f"{sample_dict['uid']}, {sample_dict['shard_url']}, "
