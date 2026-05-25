@@ -3,7 +3,7 @@
 
 # install pixi
 curl -fsSL https://pixi.sh/install.sh | sh
-export PATH="/HOME/.pixi/bin:$PATH"
+export PATH="$HOME/.pixi/bin:$PATH"
 
 # create environment
 # use the default pixi environment if PIXI_ENV is not set
