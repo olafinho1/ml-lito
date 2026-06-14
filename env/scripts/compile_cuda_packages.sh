@@ -20,6 +20,10 @@ if [[ -z "${FLASH_ATTN_CUDA_ARCHS:-}" ]]; then
 fi
 export MAX_JOBS
 export TORCH_CUDA_ARCH_LIST="${LITO_CUDA_ARCH_LIST}"
+# The image is built without a visible GPU, so torch.cuda.is_available() is
+# False at compile time. PyTorch3D/torchsparse gate their CUDA kernels on that
+# check and would otherwise build CPU-only; force the CUDA build explicitly.
+export FORCE_CUDA=1
 export FLASH_ATTN_CUDA_ARCHS
 mkdir -p "${THIRD_PARTY_PKG_INSTALL_DIR}"
 

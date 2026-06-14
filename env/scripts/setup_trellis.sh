@@ -8,6 +8,9 @@ REPO_ROOT="$(dirname -- "$(dirname -- "$CUR_DIR")")"
 : "${LITO_CUDA_ARCH_LIST:=8.6}"
 export MAX_JOBS
 export TORCH_CUDA_ARCH_LIST="${LITO_CUDA_ARCH_LIST}"
+# No GPU is visible during the image build, so torch.cuda.is_available() is
+# False at compile time and kaolin would build CPU-only; force the CUDA build.
+export FORCE_CUDA=1
 
 KAOLIN_COMMIT="3915474ca2af92a569f6180c6a42efd92b17de26"
 DIFFOCTREERAST_COMMIT="b09c20b84ec3aace4729e6e18a613112320eca3a"
