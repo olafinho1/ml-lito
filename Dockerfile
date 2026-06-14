@@ -118,7 +118,7 @@ RUN mkdir -p /opt/ml-lito/artifacts \
         | sha256sum --check - \
     && echo "${LITO_GENERATOR_SHA256}  /opt/ml-lito/artifacts/lito_dit_rgba.ckpt" \
         | sha256sum --check - \
-    && python docker/prefetch_assets.py
+    && python /opt/ml-lito/docker/prefetch_assets.py
 
 ENV LITO_TOKENIZER_CHECKPOINT=/opt/ml-lito/artifacts/lito_new.ckpt \
     LITO_GENERATOR_CHECKPOINT=/opt/ml-lito/artifacts/lito_dit_rgba.ckpt
