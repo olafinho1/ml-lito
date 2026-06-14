@@ -1,0 +1,13 @@
+.git
+.github
+.pixi
+artifacts
+debug
+results
+__pycache__
+*.pyc
+*.pyo
+*.log
+*.ckpt
+*.tmp
+notebooks/recon_results

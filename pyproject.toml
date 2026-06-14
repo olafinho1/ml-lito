@@ -192,7 +192,7 @@ pkg-config = "*"
 # ==========================================
 
 [tool.pixi.activation.env]
-TORCH_CUDA_ARCH_LIST = "8.0;9.0;10.0"  # a100, h100, b200
+TORCH_CUDA_ARCH_LIST = "8.0;8.6;9.0;10.0"  # a100, a40/a6000, h100, b200
 PYTORCH_ALLOC_CONF = "expandable_segments:True"  # future proofing for torch >= 2.10
 PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
 
@@ -225,16 +225,13 @@ default = ["pt291", "geom", "eval", "vis", "dev", "trellis"]
 # --- 6. TASKS ---
 [tool.pixi.target.linux-64.tasks]
 install_efa = "bash /usr/local/bin/install-aws-efa"
-setup_conductor = "bash env/scripts/setup_conductor.sh"
 setup_cyobj = "bash env/scripts/setup_cyobj.sh"
 setup_spz = "bash env/scripts/setup_spz.sh"
 setup_gaussian = "bash env/scripts/setup_gaussians.sh"
 setup_trellis = "bash env/scripts/setup_trellis.sh"
-setup_env_addon = "bash env/scripts/setup_env_addon.sh"
 compile_cuda_packages = "bash env/scripts/compile_cuda_packages.sh"
 
 post-install = { depends-on = [
-    "setup_conductor",
     "setup_spz",
     "setup_trellis",
     "compile_cuda_packages"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Exit on error
 set -e
@@ -30,7 +30,7 @@ else
     echo "🐧 Detected Linux (or Intel Mac). Installing spz normally..."
 
     # Standard installation for Linux/Intel
-    pip install "git+https://github.com/nianticlabs/spz.git"
+    pip install "git+https://github.com/nianticlabs/spz.git@b39fe5b90083d520ab77a5f9dcbf6e19c861bf05"
 fi
 
 echo "✅ spz installation complete."

@@ -32,3 +32,4 @@ Thumbs.db
 
 # Large PLY files (not used by viewer, only SPZ files are needed)
 *.ply
+docker/__pycache__/
