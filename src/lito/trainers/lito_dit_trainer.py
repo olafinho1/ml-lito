@@ -163,6 +163,10 @@ class LiToDiTTrainer(base_trainer.BaseTrainer):
         self.use_cfg = self.cfg_scale > 1.0 and self.use_img_cond
         self.ema_decay = ema_decay
         self.eval_ema = eval_ema
+        pretrained_model_checkpoint_url = os.environ.get(
+            "LITO_TOKENIZER_CHECKPOINT",
+            pretrained_model_checkpoint_url,
+        )
         self.pretrained_model_checkpoint_url = pretrained_model_checkpoint_url
         self.std_posterior = std_posterior
 

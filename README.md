@@ -47,6 +47,9 @@ We propose a latent 3D representation that jointly models object geometry and vi
     # bash env/setup_mac.sh
     ```
 
+For a reusable Linux CUDA image, including A40-specific build and acceptance
+instructions, see [`docs/docker.md`](docs/docker.md).
+
 ## Pretrained Models
 
 We provide the following pretrained models:
